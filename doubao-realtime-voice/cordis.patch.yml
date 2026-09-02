@@ -1,0 +1,94 @@
+# The doubao-realtime-voice bundle patch: registers the VolcEngine Doubao
+# Real-time Voice Model 3.0 (Seeduplex) provider on the LLM registry
+# AND the browser settings card for configuration.
+# Applied after dsh-base's insert; the profile's own cordis.patch.yml and
+# any --patch overlays still come after.
+#
+# A patch replaces the targeted row's whole `config`, so this row restates
+# every key it owns.
+
+# ── Host rows (dsh.host) ──────────────────────────────────────────────────────
+
+- insert:
+    # Host service that manages WebSocket connections to VolcEngine Doubao
+    # Real-time Voice API. Provides the `doubaoRealtimeVoice` service.
+    - id: doubao-realtime-voice
+      name: '@lifecordis/doubao-realtime-voice'
+      inject: [llm, credentials, settings, launchEnvironment]
+      config:
+        # Credential reference (environment-variable name) resolved per request.
+        # Defaults to DOUBAO_API_KEY (can be overridden in settings).
+        apiKeyEnv: DOUBAO_API_KEY
+        # Endpoint base; falls back to $DOUBAO_BASE_URL from a trusted
+        # environment layer, then the public VolcEngine API.
+        baseURL: ''
+        # Model identifier for the Seeduplex full-duplex model.
+        model: '1.2.6.1'
+        # System prompt (instructions for the model).
+        instructions: ''
+        # Default voice ID (see VolcEngine console for available voices).
+        voice: 'zh_female_shengjie'
+        # Default audio input format.
+        inputAudioFormat:
+          type: 'pcm'
+          rate: 16000
+        # Default audio output format.
+        outputAudioFormat:
+          type: 'ogg_opus'
+          rate: 24000
+        # Default language speed (range -50 to 100, 0 = normal).
+        speed: 0
+        # Default volume level (range -50 to 100, 0 = normal).
+        loudness: 0
+        # Enable ASR two-pass recognition.
+        enableAsrTwopass: false
+        # Hotword table ID for ASR.
+        boostingTableId: ''
+        # Hotword table name for ASR.
+        boostingTableName: ''
+        # Regex correct table ID for ASR.
+        regexCorrectTableId: ''
+        # Regex correct table name for ASR.
+        regexCorrectTableName: ''
+        # ASR context with hotwords and correct words.
+        asrContext: {}
+        # Dialog location info.
+        location: {}
+        # Enable built-in web search capability (flattened for UI binding).
+        enableVolcWebsearch: false
+        # Web search service type.
+        volcWebsearchType: 'web_custom_api'
+        # Web search API key.
+        volcWebsearchApiKey: ''
+        # Dialog extra parameters.
+        dialogExtra:
+          strictAudit: true
+          auditResponse: ''
+          enableMusic: false
+          enableLoudnessNorm: false
+          enableUserQueryExit: false
+        # TTS extra parameters.
+        ttsExtra:
+          maxLengthToFilterParenthesis: 0
+          explicitDialect: ''
+          aigcMetadata:
+            enable: false
+            contentProducer: ''
+            produceId: ''
+            contentPropagator: ''
+            propagateId: ''
+        # Default tools for function calling.
+        tools: []
+
+# ── Client rows (dsh.client) ──────────────────────────────────────────────────
+
+# These rows are mounted in the browser bundle. They register the settings
+# card for the `doubao-realtime-voice` namespace into the Plugins settings tab.
+
+- insert:
+    # Browser settings card for the Doubao Real-time Voice plugin.
+    # Reads/writes the `doubao-realtime-voice` settings namespace and the
+    # `DOUBAO_API_KEY` credential reference.
+    - id: dsh.client:doubao-realtime-voice-settings
+      name: '@lifecordis/dsh-client-doubao-realtime-voice'
+      inject: [slots, locale, remote, settingsScope]
