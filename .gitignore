@@ -1,0 +1,29 @@
+# 上游 deepseek-harness 克隆：独立 git 仓库，根仓库不跟踪
+deepseek-harness/
+
+# 依赖与构建产物
+node_modules/
+lib/
+dist/
+build/
+
+# 环境与敏感信息
+.env
+.env.*
+!.env.example
+
+# 日志与临时文件
+*.log
+*.tmp
+*.tsbuildinfo
+.DS_Store
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# 测试与快照临时产物
+coverage/
+.dsh-build/
+.tmp-*/
