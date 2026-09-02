@@ -87,10 +87,72 @@ dsh --profile demo                                 # 开启真实 session 验证
 - 只修改本业务内的文件；不删除原有内容；尽量不改配置文件（确需修改则向用户强提醒改动点与影响范围）。
 - 代码落地后及时更新本文件（新增 Lifehub 包时增补其包说明与接线要点）。
 
+## 插件安装记录：doubao-realtime-voice
+
+### 完整安装与验证流程
+
+```bash
+# 1. 在工作区根目录，将插件加入 demo profile
+cd /usr/date/LifeCordisHub
+pnpm --filter deepseek-harness dsh plugin --profile demo add ./Lifehub/doubao-realtime-voice
+
+# 2. 验证配置已生效（应看到 doubao-realtime-voice 与 dsh.client:doubao-realtime-voice-settings）
+pnpm --filter deepseek-harness dsh --profile demo --dump-config | grep -A 20 doubao
+
+# 3. 构建全量产物（首次必须）
+cd /usr/date/LifeCordisHub/deepseek-harness
+pnpm run build
+
+# 4. 启动 Web UI（自动打开浏览器，或加 --no-open 仅打印 URL）
+pnpm dsh web
+# 或无头模式
+pnpm dsh web --no-open
+```
+
+### 配置入口
+
+- Web UI 打开后：`设置 → 插件 → 可配置 → 豆包实时语音`
+- 必填：`API Key`（火山引擎 `DOUBAO_API_KEY`）
+- 可选：`Base URL`、`音色`、`语速`、`音量`、`启用联网搜索`、`ASR 双通道` 等
+
+### 插件结构
+
+```
+Lifehub/doubao-realtime-voice/
+├── package.json              # 主包（含 client 依赖）
+├── cordis.patch.yml          # Bundle patch（Host + Client 行）
+├── tsconfig.json
+├── README.md
+├── src/                      # Host 服务
+│   ├── index.ts              # 插件入口、Config Schema、Service 注册
+│   ├── types.ts              # 完整协议类型
+│   └── service.ts            # WebSocket 服务
+└── client/                   # 前端 Settings Card
+    ├── package.json          # dsh.client manifest
+    ├── tsconfig.json
+    ├── tsdown.config.ts
+    └── src/
+        ├── index.ts          # Client apply（注册 settings.plugin.item）
+        ├── locales.ts        # 中英字典
+        ├── doubao-realtime-voice-card-controller.ts  # CardForm
+        └── DoubaoRealtimeVoiceCard.tsx               # UI 组件
+```
+
+### 关键技术点
+
+| 项 | 实现 |
+|----|------|
+| 鉴权 | `X-Api-Key` 通过 WebSocket Headers 传递 |
+| 握手 | 连接建立后自动发送 `session.create`，等待 `session.created` |
+| 保活 | TCP Ping 每 15s，防 10 分钟超时 |
+| 优雅断连 | 发送 `session.close`，等待 `session.closed` 后关闭 socket |
+| 重连 | 指数退避（1s→30s，最多 5 次）；4xx 错误熔断 |
+| 配置同步 | Web 搜索字段扁平化到 Config 顶层，`createSessionConfig` 组装进 `dialog.extra` |
+
 ## 工作区纪律
 
-- 根仓库（本仓库）不跟踪 `deepseek-harness/`（见根目录 `.gitignore`）——上游克隆由其自己的 git 管理，避免重复入库、保持两侧可独立演化。
-- 不使用 gitnexus 工具。
-- 密钥 / 凭证（如 `DEEPSEEK_API_KEY`）不写入代码、日志与提交历史；`.env` 类文件不入库。
-- 破坏性 / 不可逆操作（数据库结构变更、批量删改、强推远端、git 历史改写等）只向用户提供命令，由用户亲自执行，并说明作用与是否可逆。
-- 提交粒度：一个提交对应一个可独立 revert 的逻辑单元；提交前自检敏感信息与生成产物。
+  - 根仓库（本仓库）不跟踪 `deepseek-harness/`（见根目录 `.gitignore`）——上游克隆由其自己的 git 管理，避免重复入库、保持两侧可独立演化。
+  - 不使用 gitnexus 工具。
+  - 密钥 / 凭证（如 `DEEPSEEK_API_KEY`）不写入代码、日志与提交历史；`.env` 类文件不入库。
+  - 破坏性 / 不可逆操作（数据库结构变更、批量删改、强推远端、git 历史改写等）只向用户提供命令，由用户亲自执行，并说明作用与是否可逆。
+  - 提交粒度：一个提交对应一个可独立 revert 的逻辑单元；提交前自检敏感信息与生成产物。
