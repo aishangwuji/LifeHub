@@ -1,6 +1,6 @@
 # AGENTS.md
 
-本项目（DSH-Plus）专门为 deepseek-harness 构建插件，以第三方开发者身份开发。构建的插件包放于 `Lifehub/` 目录，作为独立、可安装、可发布的 npm 插件包存在。
+本项目（LifeCordisHub-dsh）专门为 deepseek-harness 构建插件，以第三方开发者身份开发。构建的插件包放于 `Lifehub/` 目录，作为独立、可安装、可发布的 npm 插件包存在。
 
 ## 工作区布局
 
