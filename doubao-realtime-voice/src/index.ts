@@ -16,6 +16,8 @@ import type {} from '@deepseek-ai/dsh-settings';
 import {
   DoubaoRealtimeVoiceServiceImpl,
   createSessionConfig,
+} from './service.js';
+import {
   type DoubaoRealtimeVoiceService,
   type DoubaoRealtimeVoiceConfig,
   type SessionConfig,
@@ -46,8 +48,10 @@ export type {
 
 export {
   DEFAULT_CONFIG,
-  createSessionConfig,
 } from './types.js';
+export {
+  createSessionConfig,
+} from './service.js';
 
 /** Stable Cordis plugin name. */
 export const name = 'doubao-realtime-voice';
@@ -56,7 +60,7 @@ export const name = 'doubao-realtime-voice';
 export const inject = ['credentials', 'settings', 'launchEnvironment'] as const;
 
 /** Plugin configuration schema (validated by schemastery). */
-export const Config = z.object({
+export const Config: z<Config> = z.object({
   /** Credential reference (environment-variable name) resolved per request. */
   apiKeyEnv: z.string().role('credential-ref').default('DOUBAO_API_KEY'),
   /** Endpoint base URL; falls back to $DOUBAO_BASE_URL then public API. */
@@ -69,12 +73,12 @@ export const Config = z.object({
   voice: z.string().default('zh_female_shengjie'),
   /** Default audio input format. */
   inputAudioFormat: z.object({
-    type: z.enum(['pcm', 'speech_opus']).default('pcm'),
+    type: z.union([z.const('pcm'), z.const('speech_opus')]).default('pcm'),
     rate: z.number().default(16000),
   }).default({ type: 'pcm', rate: 16000 }),
   /** Default audio output format. */
   outputAudioFormat: z.object({
-    type: z.enum(['pcm', 'ogg_opus']).default('ogg_opus'),
+    type: z.union([z.const('pcm'), z.const('ogg_opus')]).default('ogg_opus'),
     rate: z.number().default(24000),
   }).default({ type: 'ogg_opus', rate: 24000 }),
   /** Default language speed (-50 to 100). */
@@ -92,13 +96,13 @@ export const Config = z.object({
   /** Regex correct table name for ASR. */
   regexCorrectTableName: z.string().default(''),
   /** ASR context with hotwords and correct words. */
-  asrContext: z.record(z.unknown()).default({}),
+  asrContext: z.dict(z.any()).default({}),
   /** Dialog location info. */
-  location: z.record(z.unknown()).default({}),
+  location: z.dict(z.any()).default({}),
   /** Enable built-in web search capability. */
   enableVolcWebsearch: z.boolean().default(false),
   /** Web search service type. */
-  volcWebsearchType: z.enum(['web_custom_api', 'web_global_api']).default('web_custom_api'),
+  volcWebsearchType: z.union([z.const('web_custom_api'), z.const('web_global_api')]).default('web_custom_api'),
   /** Web search API key. */
   volcWebsearchApiKey: z.string().default(''),
   /** Dialog extra parameters. */
@@ -108,7 +112,7 @@ export const Config = z.object({
     enableMusic: z.boolean().default(false),
     enableLoudnessNorm: z.boolean().default(false),
     enableUserQueryExit: z.boolean().default(false),
-  }).default({}),
+  }).default({ strictAudit: true, auditResponse: '', enableMusic: false, enableLoudnessNorm: false, enableUserQueryExit: false }),
   /** TTS extra parameters. */
   ttsExtra: z.object({
     maxLengthToFilterParenthesis: z.number().default(0),
@@ -119,19 +123,58 @@ export const Config = z.object({
       produceId: z.string().default(''),
       contentPropagator: z.string().default(''),
       propagateId: z.string().default(''),
-    }).default({}),
-  }).default({}),
+    }).default({ enable: false, contentProducer: '', produceId: '', contentPropagator: '', propagateId: '' }),
+  }).default({ maxLengthToFilterParenthesis: 0, explicitDialect: '', aigcMetadata: { enable: false, contentProducer: '', produceId: '', contentPropagator: '', propagateId: '' } }),
   /** Default tools for function calling (flat Function Calling format). */
   tools: z.array(z.object({
-    type: z.literal('function'),
+    type: z.const('function'),
     name: z.string(),
-    description: z.string().optional(),
-    parameters: z.record(z.unknown()),
+    description: z.string(),
+    parameters: z.dict(z.any()),
   })).default([]),
 });
 
 /** Plugin config type (inferred from schema). */
-export interface Config extends z.infer<typeof Config> {}
+export type Config = {
+  apiKeyEnv: string;
+  baseURL: string;
+  model: string;
+  instructions: string;
+  voice: string;
+  inputAudioFormat: { type: 'pcm' | 'speech_opus'; rate: number };
+  outputAudioFormat: { type: 'pcm' | 'ogg_opus'; rate: number };
+  speed: number;
+  loudness: number;
+  enableAsrTwopass: boolean;
+  boostingTableId: string;
+  boostingTableName: string;
+  regexCorrectTableId: string;
+  regexCorrectTableName: string;
+  asrContext: Record<string, unknown>;
+  location: Record<string, unknown>;
+  enableVolcWebsearch: boolean;
+  volcWebsearchType: 'web_custom_api' | 'web_global_api';
+  volcWebsearchApiKey: string;
+  dialogExtra: {
+    strictAudit: boolean;
+    auditResponse: string;
+    enableMusic: boolean;
+    enableLoudnessNorm: boolean;
+    enableUserQueryExit: boolean;
+  };
+  ttsExtra: {
+    maxLengthToFilterParenthesis: number;
+    explicitDialect: string;
+    aigcMetadata: {
+      enable: boolean;
+      contentProducer: string;
+      produceId: string;
+      contentPropagator: string;
+      propagateId: string;
+    };
+  };
+  tools: Array<{ type: 'function'; name: string; description?: string; parameters: Record<string, unknown> }>;
+};
 
 /** Service name for the Doubao real-time voice connection. */
 export const DOUBAO_REALTIME_VOICE_SERVICE = 'doubaoRealtimeVoice';
@@ -162,6 +205,7 @@ function resolveConnectionOptions(config: Config): {
 export function apply(ctx: Context, config: Config): void {
   let currentConfig: Config = config;
   let serviceInstance: DoubaoRealtimeVoiceServiceImpl | null = null;
+  let serviceDisposer: (() => void) | null = null;
 
   // Function to resolve API key from credentials or environment
   const resolveApiKey = async (): Promise<string> => {
@@ -202,37 +246,57 @@ export function apply(ctx: Context, config: Config): void {
     return service;
   };
 
-  // Initialize service
+  // Initialize service (serialized to avoid concurrent provide)
+  let initChain: Promise<void> = Promise.resolve();
   const initializeService = async (): Promise<void> => {
+    const task = async (): Promise<void> => {
+      if (serviceDisposer) {
+        serviceDisposer();
+        serviceDisposer = null;
+      }
+      if (serviceInstance) {
+        await serviceInstance.disconnect();
+        serviceInstance = null;
+      }
+      try {
+        serviceInstance = await createService();
+        serviceDisposer = ctx.provide(DOUBAO_REALTIME_VOICE_SERVICE, serviceInstance);
+        ctx.logger.info('doubao-realtime-voice: service registered');
+      } catch (error) {
+        ctx.logger.error('doubao-realtime-voice: failed to initialize service', error);
+        // Still provide a placeholder that will error on use
+        const placeholder = {
+          state: 'error' as const,
+          sessionId: undefined,
+          connect: async () => { throw error; },
+          send: () => { throw error; },
+          sendAudio: () => { throw error; },
+          sendText: () => { throw error; },
+          commitAudio: () => { throw error; },
+          muteAudio: () => { throw error; },
+          unmuteAudio: () => { throw error; },
+          updateSession: () => { throw error; },
+          createConversationItem: () => { throw error; },
+          updateConversationItem: () => { throw error; },
+          retrieveConversation: () => { throw error; },
+          deleteConversationItem: () => { throw error; },
+          cancelResponse: () => { throw error; },
+          on: () => () => {},
+          onStateChange: () => () => {},
+          onError: () => () => {},
+          disconnect: async () => {},
+        } as DoubaoRealtimeVoiceService;
+        serviceDisposer = ctx.provide(DOUBAO_REALTIME_VOICE_SERVICE, placeholder);
+      }
+    };
+    const prev = initChain;
+    let resolveChain!: () => void;
+    initChain = new Promise<void>((resolve) => { resolveChain = resolve; });
+    await prev;
     try {
-      serviceInstance = await createService();
-      ctx.provide(DOUBAO_REALTIME_VOICE_SERVICE, serviceInstance);
-      ctx.logger.info('doubao-realtime-voice: service registered');
-    } catch (error) {
-      ctx.logger.error('doubao-realtime-voice: failed to initialize service', error);
-      // Still provide a placeholder that will error on use
-      const placeholder = {
-        state: 'error' as const,
-        sessionId: undefined,
-        connect: async () => { throw error; },
-        send: () => { throw error; },
-        sendAudio: () => { throw error; },
-        sendText: () => { throw error; },
-        commitAudio: () => { throw error; },
-        muteAudio: () => { throw error; },
-        unmuteAudio: () => { throw error; },
-        updateSession: () => { throw error; },
-        createConversationItem: () => { throw error; },
-        updateConversationItem: () => { throw error; },
-        retrieveConversation: () => { throw error; },
-        deleteConversationItem: () => { throw error; },
-        cancelResponse: () => { throw error; },
-        on: () => () => {},
-        onStateChange: () => () => {},
-        onError: () => () => {},
-        disconnect: async () => {},
-      } as DoubaoRealtimeVoiceService;
-      ctx.provide(DOUBAO_REALTIME_VOICE_SERVICE, placeholder);
+      await task();
+    } finally {
+      resolveChain();
     }
   };
 
@@ -247,9 +311,6 @@ export function apply(ctx: Context, config: Config): void {
       },
       onChange: async () => {
         ctx.logger.info('doubao-realtime-voice: config changed, reinitializing service');
-        if (serviceInstance) {
-          await serviceInstance.disconnect();
-        }
         await initializeService();
       },
     });
@@ -258,6 +319,10 @@ export function apply(ctx: Context, config: Config): void {
   // Cleanup on plugin stop
   ctx.effect(() => {
     return () => {
+      if (serviceDisposer) {
+        serviceDisposer();
+        serviceDisposer = null;
+      }
       if (serviceInstance) {
         void serviceInstance.disconnect();
         serviceInstance = null;

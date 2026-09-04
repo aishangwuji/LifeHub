@@ -25,8 +25,8 @@ const MAX_RECONNECT_ATTEMPTS = 5;
 
 export class DoubaoRealtimeVoiceServiceImpl implements DoubaoRealtimeVoiceService {
   private ws: WebSocket | null = null;
-  private state: ConnectionState = 'disconnected';
-  private sessionId: string | undefined;
+  private _state: ConnectionState = 'disconnected';
+  private _sessionId: string | undefined;
   private config: DoubaoRealtimeVoiceConfig;
   private apiKey: string;
   private baseURL: string;
@@ -53,16 +53,16 @@ export class DoubaoRealtimeVoiceServiceImpl implements DoubaoRealtimeVoiceServic
   }
 
   get state(): ConnectionState {
-    return this.state;
+    return this._state;
   }
 
   get sessionId(): string | undefined {
-    return this.sessionId;
+    return this._sessionId;
   }
 
   private setState(newState: ConnectionState): void {
-    if (this.state !== newState) {
-      this.state = newState;
+    if (this._state !== newState) {
+      this._state = newState;
       this.notifyStateChange(newState);
     }
   }
@@ -177,7 +177,7 @@ export class DoubaoRealtimeVoiceServiceImpl implements DoubaoRealtimeVoiceServic
           this.ctx.logger.info(`DoubaoRealtimeVoice: WebSocket closed (code: ${event.code}, reason: ${event.reason})`);
           this.setState('disconnected');
           this.ws = null;
-          this.sessionId = undefined;
+          this._sessionId = undefined;
           this.stopKeepAlive();
 
           if (this.connectReject) {
@@ -243,8 +243,8 @@ export class DoubaoRealtimeVoiceServiceImpl implements DoubaoRealtimeVoiceServic
 
     // 处理握手成功
     if (event.type === 'session.created') {
-      this.sessionId = event.session.id;
-      this.ctx.logger.info(`DoubaoRealtimeVoice: session created ${this.sessionId}`);
+      this._sessionId = event.session.id;
+      this.ctx.logger.info(`DoubaoRealtimeVoice: session created ${this._sessionId}`);
       if (this.connectResolve) {
         this.connectResolve();
       }
@@ -253,7 +253,7 @@ export class DoubaoRealtimeVoiceServiceImpl implements DoubaoRealtimeVoiceServic
 
     // 会话结束
     if (event.type === 'session.closed') {
-      this.sessionId = undefined;
+      this._sessionId = undefined;
       this.stopKeepAlive();
     }
 
@@ -427,7 +427,7 @@ export class DoubaoRealtimeVoiceServiceImpl implements DoubaoRealtimeVoiceServic
     }
 
     this.setState('disconnected');
-    this.sessionId = undefined;
+    this._sessionId = undefined;
     this.eventHandlers.clear();
     this.stateChangeHandlers.clear();
     this.errorHandlers.clear();

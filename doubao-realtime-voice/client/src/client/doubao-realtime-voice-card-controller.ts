@@ -16,7 +16,7 @@ import type { SettingsScope, SettingsScopeSnapshot } from '@deepseek-ai/dsh-clie
 import {
   CardForm, numberField, textField,
   type CardActions, type CardFieldSpec, type CardFieldState, type CardShell,
-} from '@deepseek-ai/dsh-client-ui-settings-plugins/client'
+} from '@deepseek-ai/dsh-client-ui-settings-plugins/src/client/card-form.js'
 
 /**
  * Namespace of the Doubao Real-time Voice plugin.
@@ -159,7 +159,7 @@ export class DoubaoRealtimeVoiceCardController {
         textField('boostingTableId'),
         textField('boostingTableName'),
       ],
-      [{ field: API_KEY_FIELD, write: text => this.writeKey(text) }],
+      [{ field: API_KEY_FIELD, write: (text: string) => this.writeKey(text) }],
     )
     this.store = this.form.bind(() => this.projection())
     scope.subscribe(() => { void this.readCredential() })

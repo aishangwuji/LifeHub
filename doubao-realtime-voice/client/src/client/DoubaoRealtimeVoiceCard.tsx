@@ -5,15 +5,16 @@
  */
 
 import type { InjectFace, PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
-import { PluginCard, SecretField, ValueField } from '@deepseek-ai/dsh-client-ui-settings-plugins/client'
+import { PluginCard } from '@deepseek-ai/dsh-client-ui-settings-plugins/src/client/PluginCard.js'
+import { SecretField, ValueField } from '@deepseek-ai/dsh-client-ui-settings-plugins/src/client/fields.js'
 import type { DoubaoRealtimeVoiceCardFace } from './doubao-realtime-voice-card-controller.js'
-import type {} from '@deepseek-ai/dsh-client-ui-settings-plugins/client/slot-contract'
+import type {} from '@deepseek-ai/dsh-client-ui-settings-plugins/src/client/slot-contract.js'
 import { useId } from 'react'
 
 /** Props the renderer binds for the Doubao Real-time Voice card. */
 export type DoubaoRealtimeVoiceCardProps =
   PropsRuntime<'settings.plugin.item'>
-  & PropsLocale<'settings.plugins'>
+  & PropsLocale<'doubao-realtime-voice'>
   & InjectFace<DoubaoRealtimeVoiceCardFace>
 
 /**
@@ -22,7 +23,7 @@ export type DoubaoRealtimeVoiceCardProps =
  * @returns the card.
  */
 export function DoubaoRealtimeVoiceCard(props: DoubaoRealtimeVoiceCardProps) {
-  const { t } = props
+  const t = props.t as unknown as (key: string) => string
   const state = props.useDoubaoRealtimeVoiceCard(snapshot => snapshot)
   const disabled = !state.writable
 
@@ -58,7 +59,7 @@ export function DoubaoRealtimeVoiceCard(props: DoubaoRealtimeVoiceCardProps) {
         text={state.apiKey.text}
         configured={state.apiKeyConfigured}
         stateLabel={state.apiKeyConfigured ? t('apiKeySet') : t('apiKeyUnset')}
-        onEdit={(text) => { props.edit('apiKey', text) }}
+        onEdit={(text: string) => { props.edit('apiKey', text) }}
       />
       <ValueField
         id={baseURLId}
@@ -69,7 +70,7 @@ export function DoubaoRealtimeVoiceCard(props: DoubaoRealtimeVoiceCardProps) {
         invalidLabel={t('invalid')}
         disabled={disabled}
         {...state.baseURL}
-        onEdit={(text) => { props.edit('baseURL', text) }}
+        onEdit={(text: string) => { props.edit('baseURL', text) }}
         onReset={() => { props.resetField('baseURL') }}
       />
       <ValueField
@@ -81,7 +82,7 @@ export function DoubaoRealtimeVoiceCard(props: DoubaoRealtimeVoiceCardProps) {
         invalidLabel={t('invalid')}
         disabled={disabled}
         {...state.model}
-        onEdit={(text) => { props.edit('model', text) }}
+        onEdit={(text: string) => { props.edit('model', text) }}
         onReset={() => { props.resetField('model') }}
       />
       <ValueField
@@ -93,7 +94,7 @@ export function DoubaoRealtimeVoiceCard(props: DoubaoRealtimeVoiceCardProps) {
         invalidLabel={t('invalid')}
         disabled={disabled}
         {...state.instructions}
-        onEdit={(text) => { props.edit('instructions', text) }}
+        onEdit={(text: string) => { props.edit('instructions', text) }}
         onReset={() => { props.resetField('instructions') }}
       />
       <ValueField
@@ -105,7 +106,7 @@ export function DoubaoRealtimeVoiceCard(props: DoubaoRealtimeVoiceCardProps) {
         invalidLabel={t('invalid')}
         disabled={disabled}
         {...state.voice}
-        onEdit={(text) => { props.edit('voice', text) }}
+        onEdit={(text: string) => { props.edit('voice', text) }}
         onReset={() => { props.resetField('voice') }}
       />
       <ValueField
@@ -118,7 +119,7 @@ export function DoubaoRealtimeVoiceCard(props: DoubaoRealtimeVoiceCardProps) {
         numeric
         disabled={disabled}
         {...state.speed}
-        onEdit={(text) => { props.edit('speed', text) }}
+        onEdit={(text: string) => { props.edit('speed', text) }}
         onReset={() => { props.resetField('speed') }}
       />
       <ValueField
@@ -131,7 +132,7 @@ export function DoubaoRealtimeVoiceCard(props: DoubaoRealtimeVoiceCardProps) {
         numeric
         disabled={disabled}
         {...state.loudness}
-        onEdit={(text) => { props.edit('loudness', text) }}
+        onEdit={(text: string) => { props.edit('loudness', text) }}
         onReset={() => { props.resetField('loudness') }}
       />
       <ValueField
@@ -143,7 +144,7 @@ export function DoubaoRealtimeVoiceCard(props: DoubaoRealtimeVoiceCardProps) {
         invalidLabel={t('invalid')}
         disabled={disabled}
         {...state.enableVolcWebsearch}
-        onEdit={(text) => { props.edit('enableVolcWebsearch', text) }}
+        onEdit={(text: string) => { props.edit('enableVolcWebsearch', text) }}
         onReset={() => { props.resetField('enableVolcWebsearch') }}
       />
       <ValueField
@@ -155,7 +156,7 @@ export function DoubaoRealtimeVoiceCard(props: DoubaoRealtimeVoiceCardProps) {
         invalidLabel={t('invalid')}
         disabled={disabled}
         {...state.volcWebsearchType}
-        onEdit={(text) => { props.edit('volcWebsearchType', text) }}
+        onEdit={(text: string) => { props.edit('volcWebsearchType', text) }}
         onReset={() => { props.resetField('volcWebsearchType') }}
       />
       <ValueField
@@ -167,7 +168,7 @@ export function DoubaoRealtimeVoiceCard(props: DoubaoRealtimeVoiceCardProps) {
         invalidLabel={t('invalid')}
         disabled={disabled}
         {...state.volcWebsearchApiKey}
-        onEdit={(text) => { props.edit('volcWebsearchApiKey', text) }}
+        onEdit={(text: string) => { props.edit('volcWebsearchApiKey', text) }}
         onReset={() => { props.resetField('volcWebsearchApiKey') }}
       />
       <ValueField
@@ -179,7 +180,7 @@ export function DoubaoRealtimeVoiceCard(props: DoubaoRealtimeVoiceCardProps) {
         invalidLabel={t('invalid')}
         disabled={disabled}
         {...state.enableAsrTwopass}
-        onEdit={(text) => { props.edit('enableAsrTwopass', text) }}
+        onEdit={(text: string) => { props.edit('enableAsrTwopass', text) }}
         onReset={() => { props.resetField('enableAsrTwopass') }}
       />
       <ValueField
@@ -191,7 +192,7 @@ export function DoubaoRealtimeVoiceCard(props: DoubaoRealtimeVoiceCardProps) {
         invalidLabel={t('invalid')}
         disabled={disabled}
         {...state.boostingTableId}
-        onEdit={(text) => { props.edit('boostingTableId', text) }}
+        onEdit={(text: string) => { props.edit('boostingTableId', text) }}
         onReset={() => { props.resetField('boostingTableId') }}
       />
       <ValueField
@@ -203,7 +204,7 @@ export function DoubaoRealtimeVoiceCard(props: DoubaoRealtimeVoiceCardProps) {
         invalidLabel={t('invalid')}
         disabled={disabled}
         {...state.boostingTableName}
-        onEdit={(text) => { props.edit('boostingTableName', text) }}
+        onEdit={(text: string) => { props.edit('boostingTableName', text) }}
         onReset={() => { props.resetField('boostingTableName') }}
       />
     </PluginCard>

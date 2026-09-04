@@ -20,23 +20,26 @@ export type VoiceId = string;
 /** Dialog extra parameters (strictly snake_case per VolcEngine protocol). */
 export interface DialogExtra {
   strict_audit?: boolean;
-  audit_response?: string;
+  audit_response?: string | undefined;
   enable_music?: boolean;
   enable_loudness_norm?: boolean;
   enable_user_query_exit?: boolean;
+  enable_volc_websearch?: boolean;
+  volc_websearch_type?: string | undefined;
+  volc_websearch_api_key?: string | undefined;
 }
 
 /** TTS extra parameters. */
 export interface TtsExtra {
   max_length_to_filter_parenthesis?: number;
-  explicit_dialect?: string;
+  explicit_dialect?: string | undefined;
   aigc_metadata?: {
     enable?: boolean;
-    content_producer?: string;
-    produce_id?: string;
-    content_propagator?: string;
-    propagate_id?: string;
-  };
+    content_producer?: string | undefined;
+    produce_id?: string | undefined;
+    content_propagator?: string | undefined;
+    propagate_id?: string | undefined;
+  } | undefined;
 }
 
 /** ASR context configuration. */
@@ -91,24 +94,24 @@ export interface SessionConfig {
     asr?: {
       extra?: {
         enable_asr_twopass?: boolean;
-        boosting_table_id?: string;
-        boosting_table_name?: string;
-        regex_correct_table_id?: string;
-        regex_correct_table_name?: string;
-        context?: AsrContext;
+        boosting_table_id?: string | undefined;
+        boosting_table_name?: string | undefined;
+        regex_correct_table_id?: string | undefined;
+        regex_correct_table_name?: string | undefined;
+        context?: AsrContext | undefined;
       };
     };
     dialog?: {
-      location?: Location;
-      dialog_context?: Array<{ role: 'user' | 'assistant'; text: string; timestamp?: number }>;
-      extra?: DialogExtra;
+      location?: Location | undefined;
+      dialog_context?: Array<{ role: 'user' | 'assistant'; text: string; timestamp?: number }> | undefined;
+      extra?: DialogExtra | undefined;
     };
     tts?: {
       audio_config?: {
         type: OutputAudioFormatType;
         rate: 24000;
-      };
-      extra?: TtsExtra;
+      } | undefined;
+      extra?: TtsExtra | undefined;
     };
   };
 }
@@ -433,6 +436,8 @@ export interface DoubaoRealtimeVoiceService {
   deleteConversationItem(items: Array<{ id: string }>): void;
   cancelResponse(): void;
   on<T extends DownstreamEvent['type']>(type: T, handler: (event: Extract<DownstreamEvent, { type: T }>) => void): () => void;
+  onStateChange(handler: (state: ConnectionState) => void): () => void;
+  onError(handler: (error: Error) => void): () => void;
   disconnect(): Promise<void>;
 }
 
