@@ -9,5 +9,6 @@ export default defineConfig({
   dts: false,
   clean: false,
   fixedExtension: false,
+  tsconfig: './tsconfig.json',
   external: [/^@deepseek-ai\//, /^@lifecordis\//],
 })

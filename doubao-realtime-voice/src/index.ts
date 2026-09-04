@@ -2,28 +2,22 @@
  * @lifecordis/doubao-realtime-voice - Doubao (VolcEngine) Real-time Voice Model 3.0 (Seeduplex) plugin
  * for DeepSeek Harness.
  *
- * This plugin provides a Host service for connecting to the VolcEngine Doubao
- * Real-time Voice API via WebSocket, implementing the full-duplex Seeduplex protocol.
+ * This plugin provides:
+ * - A Host service for connecting to the VolcEngine Doubao Real-time Voice API via WebSocket
+ * - A Driver implementation for the voice-core plugin's provider registry
  *
  * @module @lifecordis/doubao-realtime-voice
  */
 
-import type { Context } from '@deepseek-ai/cordis';
-import z from '@deepseek-ai/schemastery';
-import { credentialRef } from '@deepseek-ai/dsh-credentials';
-import { launchEnvironmentOf } from '@deepseek-ai/dsh-launch-environment';
-import type {} from '@deepseek-ai/dsh-settings';
-import {
-  DoubaoRealtimeVoiceServiceImpl,
-  createSessionConfig,
-} from './service.js';
+import { Context } from '@deepseek-ai/cordis';
+import { DoubaoDriver } from './DoubaoDriver.js';
 import {
   type DoubaoRealtimeVoiceService,
   type DoubaoRealtimeVoiceConfig,
   type SessionConfig,
   DEFAULT_CONFIG,
 } from './types.js';
-import type { DoubaoRealtimeVoiceConfig as ConfigType } from './types.js';
+import type { VoiceProviderConfig } from '@lifecordis/voice-core';
 
 // Re-export types
 export type {
@@ -52,14 +46,17 @@ export {
 export {
   createSessionConfig,
 } from './service.js';
+export { DoubaoDriver } from './DoubaoDriver.js';
 
 /** Stable Cordis plugin name. */
 export const name = 'doubao-realtime-voice';
 
 /** Services this plugin requires. */
-export const inject = ['credentials', 'settings', 'launchEnvironment'] as const;
+export const inject = ['credentials', 'settings', 'launchEnvironment', 'voiceRegistry'] as const;
 
 /** Plugin configuration schema (validated by schemastery). */
+import z from '@deepseek-ai/schemastery';
+
 export const Config: z<Config> = z.object({
   /** Credential reference (environment-variable name) resolved per request. */
   apiKeyEnv: z.string().role('credential-ref').default('DOUBAO_API_KEY'),
@@ -176,157 +173,88 @@ export type Config = {
   tools: Array<{ type: 'function'; name: string; description?: string; parameters: Record<string, unknown> }>;
 };
 
-/** Service name for the Doubao real-time voice connection. */
+/** Service name for the Doubao real-time voice connection (legacy). */
 export const DOUBAO_REALTIME_VOICE_SERVICE = 'doubaoRealtimeVoice';
 
-/**
- * Resolve connection options from config and environment.
- */
-function resolveConnectionOptions(config: Config): {
-  apiKeyEnv: ReturnType<typeof credentialRef>;
-  baseURL: string;
-  sessionConfig: SessionConfig;
-} {
-  const baseURL = config.baseURL
-    || launchEnvironmentOf({} as Context).get('DOUBAO_BASE_URL')?.value
-    || 'wss://openspeech.bytedance.com/api/v3/duplex/realtime/dialogue';
+const DRIVER_ID = 'doubao';
 
+/**
+ * Convert plugin config to VoiceProviderConfig for the driver.
+ */
+function toProviderConfig(config: Config): VoiceProviderConfig {
   return {
-    apiKeyEnv: credentialRef(config.apiKeyEnv),
-    baseURL,
-    sessionConfig: createSessionConfig(config as DoubaoRealtimeVoiceConfig),
+    apiKeyEnv: config.apiKeyEnv,
+    baseURL: config.baseURL,
+    model: config.model,
+    instructions: config.instructions,
+    voice: config.voice,
+    inputAudioFormat: config.inputAudioFormat,
+    outputAudioFormat: config.outputAudioFormat,
+    speed: config.speed,
+    loudness: config.loudness,
+    enableAsrTwopass: config.enableAsrTwopass,
+    boostingTableId: config.boostingTableId,
+    boostingTableName: config.boostingTableName,
+    regexCorrectTableId: config.regexCorrectTableId,
+    regexCorrectTableName: config.regexCorrectTableName,
+    asrContext: config.asrContext,
+    location: config.location,
+    enableVolcWebsearch: config.enableVolcWebsearch,
+    volcWebsearchType: config.volcWebsearchType,
+    volcWebsearchApiKey: config.volcWebsearchApiKey,
+    dialogExtra: config.dialogExtra,
+    ttsExtra: config.ttsExtra,
+    tools: config.tools,
   };
 }
 
 /**
  * Plugin apply function.
- * Registers the Doubao Real-time Voice service on the context.
+ * Registers the DoubaoDriver with voice-core's VoiceRegistryService.
+ * Hot-reloads on settings change.
  */
 export function apply(ctx: Context, config: Config): void {
   let currentConfig: Config = config;
-  let serviceInstance: DoubaoRealtimeVoiceServiceImpl | null = null;
-  let serviceDisposer: (() => void) | null = null;
 
-  // Function to resolve API key from credentials or environment
-  const resolveApiKey = async (): Promise<string> => {
-    const credentials = ctx.get('credentials');
-    const ref = currentConfig.apiKeyEnv;
-
-    if (credentials !== undefined) {
-      const hit = await credentials.resolve(ref);
-      if (hit !== undefined && hit.value.length > 0) {
-        return hit.value;
-      }
-    }
-
-    // Fallback to environment variable
-    const env = launchEnvironmentOf(ctx);
-    const ambient = env.get(ref);
-    if (ambient !== undefined && ambient.value.length > 0) {
-      return ambient.value;
-    }
-
-    throw new Error(
-      `doubao-realtime-voice: no API key for provider; store ${ref} through the credentials service`
-      + ` or export ${ref} in the launching environment`
-    );
-  };
-
-  // Create or recreate the service instance
-  const createService = async (): Promise<DoubaoRealtimeVoiceServiceImpl> => {
-    const apiKey = await resolveApiKey();
-    const { baseURL, sessionConfig } = resolveConnectionOptions(currentConfig);
-
-    const service = new DoubaoRealtimeVoiceServiceImpl(ctx, {
-      apiKey,
-      baseURL,
-      config: sessionConfig,
+  // Register driver factory with voice-core registry
+  const registerDriver = (): void => {
+    ctx.voiceRegistry.register(DRIVER_ID, (providerConfig: VoiceProviderConfig) => {
+      // Merge plugin config with provider config
+      const mergedConfig = { ...toProviderConfig(currentConfig), ...providerConfig };
+      return new DoubaoDriver(ctx, mergedConfig);
+    }, {
+      name: 'VolcEngine Doubao Seeduplex',
+      description: 'Full-duplex end-to-end speech model from VolcEngine',
     });
-
-    return service;
+    ctx.logger.info('doubao-realtime-voice: driver registered with voice-core');
   };
 
-  // Initialize service (serialized to avoid concurrent provide)
-  let initChain: Promise<void> = Promise.resolve();
-  const initializeService = async (): Promise<void> => {
-    const task = async (): Promise<void> => {
-      if (serviceDisposer) {
-        serviceDisposer();
-        serviceDisposer = null;
-      }
-      if (serviceInstance) {
-        await serviceInstance.disconnect();
-        serviceInstance = null;
-      }
-      try {
-        serviceInstance = await createService();
-        serviceDisposer = ctx.provide(DOUBAO_REALTIME_VOICE_SERVICE, serviceInstance);
-        ctx.logger.info('doubao-realtime-voice: service registered');
-      } catch (error) {
-        ctx.logger.error('doubao-realtime-voice: failed to initialize service', error);
-        // Still provide a placeholder that will error on use
-        const placeholder = {
-          state: 'error' as const,
-          sessionId: undefined,
-          connect: async () => { throw error; },
-          send: () => { throw error; },
-          sendAudio: () => { throw error; },
-          sendText: () => { throw error; },
-          commitAudio: () => { throw error; },
-          muteAudio: () => { throw error; },
-          unmuteAudio: () => { throw error; },
-          updateSession: () => { throw error; },
-          createConversationItem: () => { throw error; },
-          updateConversationItem: () => { throw error; },
-          retrieveConversation: () => { throw error; },
-          deleteConversationItem: () => { throw error; },
-          cancelResponse: () => { throw error; },
-          on: () => () => {},
-          onStateChange: () => () => {},
-          onError: () => () => {},
-          disconnect: async () => {},
-        } as DoubaoRealtimeVoiceService;
-        serviceDisposer = ctx.provide(DOUBAO_REALTIME_VOICE_SERVICE, placeholder);
-      }
-    };
-    const prev = initChain;
-    let resolveChain!: () => void;
-    initChain = new Promise<void>((resolve) => { resolveChain = resolve; });
-    await prev;
-    try {
-      await task();
-    } finally {
-      resolveChain();
-    }
+  // Unregister driver
+  const unregisterDriver = (): void => {
+    ctx.voiceRegistry.unregister(DRIVER_ID);
+    ctx.logger.info('doubao-realtime-voice: driver unregistered from voice-core');
   };
 
-  // Initial initialization
-  void initializeService();
+  // Initial registration
+  registerDriver();
 
   // Watch for config changes via settings
+  // Use installSection to get SettingsScope with onChange
   ctx.inject(['settings'], (settingsCtx) => {
     settingsCtx.settings.installSection(ctx, 'doubao-realtime-voice', Config, config, {
       setSource: (source) => {
         currentConfig = source();
       },
       onChange: async () => {
-        ctx.logger.info('doubao-realtime-voice: config changed, reinitializing service');
-        await initializeService();
+        ctx.logger.info('doubao-realtime-voice: config changed, re-registering driver');
+        unregisterDriver();
+        registerDriver();
       },
     });
   });
 
   // Cleanup on plugin stop
-  ctx.effect(() => {
-    return () => {
-      if (serviceDisposer) {
-        serviceDisposer();
-        serviceDisposer = null;
-      }
-      if (serviceInstance) {
-        void serviceInstance.disconnect();
-        serviceInstance = null;
-      }
-    };
+  ctx.on('dispose', () => {
+    unregisterDriver();
   });
 }

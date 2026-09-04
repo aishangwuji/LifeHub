@@ -14,7 +14,7 @@
     # Real-time Voice API. Provides the `doubaoRealtimeVoice` service.
     - id: doubao-realtime-voice
       name: '@lifecordis/doubao-realtime-voice'
-      inject: [credentials, settings, launchEnvironment]
+      inject: [credentials, settings, launchEnvironment, voiceRegistry]
       config:
         # Credential reference (environment-variable name) resolved per request.
         # Defaults to DOUBAO_API_KEY (can be overridden in settings).

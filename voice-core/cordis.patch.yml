@@ -1,0 +1,26 @@
+# The voice-core bundle patch: registers the core voice interaction services
+# on the Host plane and the browser UI slots on the Client plane.
+
+# ── Host rows (dsh.host) ──────────────────────────────────────────────────────
+
+- insert:
+    # Core voice service: provides VoiceRegistryService
+    - id: voice-core
+      name: '@lifecordis/voice-core'
+      inject: [settings]
+      config:
+        # Default provider ID (set by provider plugins on registration)
+        defaultProvider: ''
+        # Enable debug logging
+        debug: false
+
+# ── Client rows (dsh.client) ──────────────────────────────────────────────────
+
+- insert:
+    # Browser UI: microphone button in chat input bar
+    - id: dsh.client:voice-core-mic-button
+      name: '@lifecordis/voice-core'
+
+    # Browser UI: waveform overlay during voice sessions
+    - id: dsh.client:voice-core-waveform
+      name: '@lifecordis/voice-core'

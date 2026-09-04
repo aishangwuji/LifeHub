@@ -39,6 +39,7 @@
     "@deepseek-ai/dsh-settings": "workspace:^",
     "@deepseek-ai/dsh-launch-environment": "workspace:^",
     "@deepseek-ai/schemastery": "workspace:^",
+    "@lifecordis/voice-core": "file:../voice-core",
     "@lifecordis/dsh-client-doubao-realtime-voice": "file:./client",
     "ws": "^8.18.0",
     "tsdown": "^0.22.2"
